@@ -3,6 +3,14 @@
 A machine-wide queue for CPU-heavy work, so agents running in different repos don't
 slow each other down or skew each other's benchmarks.
 
+<img src="https://github.com/user-attachments/assets/c134b4a8-217b-491e-8360-919176d24a10" width="720" alt="Lock.app: three builds share the machine while an exclusive benchmark waits its turn, then runs alone with the dev server paused">
+
+<img src="https://github.com/user-attachments/assets/1ab5f23e-57de-4221-936f-4ebf393fc7bc" width="460" alt="The menu bar extra counting running and waiting tasks, with a live list of each">
+
+*The optional [macOS app](#native-macos-app), window and menu bar. It's a viewer that
+draws the queue from `lock`'s state file; `lock` itself is the command below and works
+without it.*
+
 Put `lock` in front of a command:
 
 ```sh

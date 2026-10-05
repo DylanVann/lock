@@ -1,7 +1,9 @@
 # lock
 
-A machine-wide queue for CPU-heavy work, so agents running in different repos don't
-slow each other down or skew each other's benchmarks.
+When several agents work on one machine, one agent's build can skew another's benchmark.
+`lock -x` makes a benchmark wait until no other task is running, then gives it the
+machine to itself. Builds and tests also run through `lock`, sharing the machine without
+overloading it.
 
 <img src="https://github.com/user-attachments/assets/c134b4a8-217b-491e-8360-919176d24a10" width="720" alt="Lock.app: three builds share the machine while an exclusive benchmark waits its turn, then runs alone with the dev server paused">
 

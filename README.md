@@ -167,8 +167,11 @@ running builds, tests and benchmarks. It doesn't guarantee a quiet machine.
 - **Idle agents still use CPU.** While a `-x` task runs, the other agents' harnesses,
   language servers, file watchers and terminals keep going. That's far less than a
   build, but not nothing. Only light tasks (`-l`) are paused.
-- **The machine remembers.** A benchmark that starts right after a long build may run
-  on a hot CPU that's throttling, or with caches full of the build's data.
+- **Heat and power change the machine's speed.** A benchmark that starts right after a
+  long build may run on a hot CPU that's throttling, or with caches full of the build's
+  data. A laptop can also slow down on battery, in Low Power Mode (which macOS can turn
+  on when the battery is low), or when charging makes it warm. `lock` doesn't see any
+  of this.
 
 For numbers you'll publish or compare across days, a dedicated quiet machine is still
 the way to go. `lock` is for keeping everyday parallel work from getting in its own way.

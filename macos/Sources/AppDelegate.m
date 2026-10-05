@@ -159,7 +159,8 @@ static NSArray<NSImage *> *SpinnerFrames(void) {
 /// What the menu lists: when this changes, the menu is rebuilt rather than updated.
 - (NSString *)menuKeyFor:(LockSnapshot *)snapshot {
     NSMutableString *key = [NSMutableString string];
-    for (LockTask *task in snapshot.running) [key appendFormat:@"r%llu,", task.taskID];
+    // Pausing or resuming a light task swaps its spinner for a blank, so it rebuilds too.
+    for (LockTask *task in snapshot.running) [key appendFormat:task.paused ? @"p%llu," : @"r%llu,", task.taskID];
     for (LockTask *task in snapshot.waiting) [key appendFormat:@"w%llu,", task.taskID];
     return key;
 }
@@ -229,6 +230,7 @@ static NSArray<NSImage *> *SpinnerFrames(void) {
     if (task.agent) [parts addObject:task.agent];
     if (task.exclusive) [parts addObject:@"exclusive"];
     if (task.light) [parts addObject:@"light"];
+    if (task.paused) [parts addObject:@"paused"];
     return [parts componentsJoinedByString:@" · "];
 }
 
@@ -240,7 +242,10 @@ static NSArray<NSImage *> *SpinnerFrames(void) {
         NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:task.title action:@selector(showTask:) keyEquivalent:@""];
         item.target = self;
         item.tag = (NSInteger)task.taskID;
-        if (task.phase == LockTaskPhaseRunning) {
+        if (task.paused) {
+            // Blank, as in the window, but spinner-sized so the title lines up with the others.
+            item.image = [[NSImage alloc] initWithSize:NSMakeSize(16, 16)];
+        } else if (task.phase == LockTaskPhaseRunning) {
             item.image = SpinnerFrames()[_spinFrame];
             [_spinningItems addObject:item];
         } else {

@@ -62,6 +62,8 @@ impl AssetSource for Icons {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
         let body = match path {
             "running" => format!(r#"{CIRCLE}<path d="M6.7 5.6v4.8l3.8-2.4z" fill="black"/>"#),
+            // A paused light task: nothing's happening, and a pause symbol would look like a button.
+            "paused" => String::new(),
             "waiting" => format!(r#"{CIRCLE}<path d="M8 4.7V8l2.2 1.4"/>"#),
             "ok" => format!(r#"{CIRCLE}<path d="M5.3 8.2l1.8 1.8 3.6-3.8"/>"#),
             "failed" | "stop" => format!(r#"{CIRCLE}<path d="M5.9 5.9l4.2 4.2M10.1 5.9l-4.2 4.2"/>"#),
@@ -792,7 +794,11 @@ fn task_row(
                 parts.push(format!("waited {}", fmt_duration_ms(waited)));
             }
             parts.extend(task.timeout_warning(now));
-            ("running", p.accent)
+            if task.paused_at_ms.is_some() {
+                ("paused", p.secondary)
+            } else {
+                ("running", p.accent)
+            }
         }
         (Phase::Waiting, _) => {
             parts.push(format!("#{position} in queue"));
@@ -828,7 +834,7 @@ fn task_row(
     } else if task.spec.light {
         Some((
             if task.paused_at_ms.is_some() {
-                "Light · paused"
+                "Light · Paused"
             } else {
                 "Light"
             },

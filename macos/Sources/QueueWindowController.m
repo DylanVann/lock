@@ -257,7 +257,7 @@ static NSString *_Nullable TimeoutWarning(LockTask *task, uint64_t now) {
 - (void)configureWithTask:(LockTask *)task now:(uint64_t)now {
     self.title.stringValue = task.title;
     self.kindTag.hidden = !task.exclusive && !task.light;
-    self.kindTag.label.stringValue = task.exclusive ? @"Exclusive" : task.paused ? @"Light · paused" : @"Light";
+    self.kindTag.label.stringValue = task.exclusive ? @"Exclusive" : task.paused ? @"Light · Paused" : @"Light";
     self.toolTip = [NSString stringWithFormat:@"%@\n%@\nPID %d", task.commandLine, task.cwd, task.displayPID];
 
     NSMutableArray<NSString *> *parts = [NSMutableArray array];
@@ -266,7 +266,13 @@ static NSString *_Nullable TimeoutWarning(LockTask *task, uint64_t now) {
     // only an upper bound. No history means no bar; running over the usual time goes indeterminate.
     self.bar.hidden = !(running && task.expected);
     if (running) {
-        [self.spinner startAnimation:nil];
+        // A paused light task (stopped for an exclusive one) gets an empty space: nothing's
+        // happening, and a pause symbol would look like a button.
+        if (task.paused) {
+            [self.spinner stopAnimation:nil];
+        } else {
+            [self.spinner startAnimation:nil];
+        }
         uint64_t elapsed = now > task.startedAt ? now - task.startedAt : 0;
         if (task.expected && elapsed < task.expected) {
             [self setBarIndeterminate:NO];

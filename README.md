@@ -38,6 +38,9 @@ lock -l -t 1h --name "Dev server" bun run dev        # light: no slot, paused wh
   `shared in 12`.
 - Shared tasks share a machine-wide **jobserver** (see below), so concurrent builds split
   the machine's cores between them instead of each starting one job per core.
+- Progress bars compare a running task with its usual run time: the median of its last
+  5 successful runs (same repo and name). `-e/--estimate 3m` sets it instead, for a
+  first run or a test.
 - `-w/--wait-timeout 5m` gives up if the lock isn't acquired in time (exit 75).
 - When the command exits, anything it left behind in its process group (a background
   job it didn't wait for) gets SIGTERM, then SIGKILL 5s later, so it doesn't keep using

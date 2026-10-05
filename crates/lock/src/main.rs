@@ -84,6 +84,10 @@ struct RunArgs {
     /// (see `lock default-timeout`).
     #[arg(short, long, value_parser = parse_duration)]
     timeout: Option<Duration>,
+    /// How long this command usually runs, for the progress bar (e.g. 3m). Defaults to the
+    /// median of its recent successful runs.
+    #[arg(short, long, value_parser = parse_duration)]
+    estimate: Option<Duration>,
     /// Give up if the lock isn't acquired within this long. Exits with 75.
     #[arg(short, long, value_parser = parse_duration)]
     wait_timeout: Option<Duration>,
@@ -231,7 +235,13 @@ async fn run(args: RunArgs, command: Vec<OsString>) -> Result<u8> {
     // Join the queue and wait our turn.
     let me = Proc::of(std::process::id());
     let enqueued = Instant::now();
-    let id = with_state(|s| s.enqueue(spec.clone(), me, parent))?;
+    let id = with_state(|s| {
+        let id = s.enqueue(spec.clone(), me, parent);
+        if let (Some(estimate), Some(task)) = (args.estimate, s.get_mut(id)) {
+            task.expected_ms = Some(estimate.as_millis() as u64);
+        }
+        id
+    })?;
     let give_up_at = args.wait_timeout.map(|w| enqueued + w);
     let mut last_position = None;
     loop {

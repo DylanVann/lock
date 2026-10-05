@@ -19,6 +19,8 @@ pub struct Palette {
     pub secondary: Rgba,
     pub tertiary: Rgba,
     pub accent: Rgba,
+    /// The Exclusive tag's text: grey like the Light tag, as in the macOS app, except where a
+    /// theme gives it a color.
     pub exclusive: Rgba,
     pub ok: Rgba,
     pub warn: Rgba,
@@ -37,7 +39,7 @@ impl Palette {
                 secondary: rgba(0xffffff8c),
                 tertiary: rgba(0xffffff40),
                 accent: rgb(0x0a84ff),
-                exclusive: rgb(0xbf5af2),
+                exclusive: rgba(0xffffff8c),
                 ok: rgb(0x32d74b),
                 warn: rgb(0xff9f0a),
                 bad: rgb(0xff453a),
@@ -51,7 +53,7 @@ impl Palette {
                 secondary: rgba(0x00000080),
                 tertiary: rgba(0x00000040),
                 accent: rgb(0x007aff),
-                exclusive: rgb(0xaf52de),
+                exclusive: rgba(0x00000080),
                 ok: rgb(0x28cd41),
                 warn: rgb(0xff9500),
                 bad: rgb(0xff3b30),

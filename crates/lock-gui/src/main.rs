@@ -5,13 +5,14 @@ mod theme;
 use std::borrow::Cow;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::f32::consts::FRAC_PI_4;
 use std::time::Duration;
 
 use gpui::{
     AnyElement, App, Application, AssetSource, Bounds, ClickEvent, ClipboardItem, Context,
     FocusHandle, FontFeatures, FontWeight, KeyBinding, Menu, MenuItem, MouseButton, Pixels, Point,
-    Rgba, ScrollHandle, SharedString, TitlebarOptions, Window, WindowBounds, WindowDecorations,
-    WindowOptions, actions, anchored, deferred, div, prelude::*, px, relative, rgba, size, svg,
+    Rgba, ScrollHandle, SharedString, TitlebarOptions, Transformation, Window, WindowBounds, WindowDecorations,
+    WindowOptions, actions, anchored, deferred, div, prelude::*, px, radians, relative, rgba, size, svg,
 };
 use lock::{
     Finished, Kind, Outcome, State, Task, TaskId, TaskState, fmt_ago, fmt_duration_ms, now_ms,
@@ -19,10 +20,13 @@ use lock::{
 };
 use theme::{Fonts, OmarchyColors, Theme};
 
-/// Polling also keeps the elapsed times ticking. There's deliberately no animation (no
-/// spinner, no indeterminate bar): it would redraw the window every frame, which is
-/// exactly the kind of background load lock is meant to keep off benchmarks.
+/// Polling also keeps the elapsed times ticking. There's deliberately no smooth animation (no
+/// indeterminate bar, no continuously turning spinner): it would redraw the window every
+/// frame, which is exactly the kind of background load lock is meant to keep off benchmarks.
 const REFRESH: Duration = Duration::from_millis(500);
+/// Running tasks' spinners step an eighth of a turn this often instead, a handful of redraws
+/// a second.
+const SPIN: Duration = Duration::from_millis(125);
 const TEXT: f32 = 13.;
 const SMALL: f32 = 11.;
 /// Leading space before the text column: row padding + icon + gap. Placeholders line up with titles.
@@ -61,7 +65,7 @@ const CIRCLE: &str = r#"<circle cx="8" cy="8" r="6.3"/>"#;
 impl AssetSource for Icons {
     fn load(&self, path: &str) -> gpui::Result<Option<Cow<'static, [u8]>>> {
         let body = match path {
-            "running" => format!(r#"{CIRCLE}<path d="M6.7 5.6v4.8l3.8-2.4z" fill="black"/>"#),
+            "spinner" => spinner_spokes(),
             // A paused light task: nothing's happening, and a pause symbol would look like a button.
             "paused" => String::new(),
             "waiting" => format!(r#"{CIRCLE}<path d="M8 4.7V8l2.2 1.4"/>"#),
@@ -86,6 +90,24 @@ impl AssetSource for Icons {
     fn list(&self, _path: &str) -> gpui::Result<Vec<SharedString>> {
         Ok(Vec::new())
     }
+}
+
+/// Eight round-capped spokes, the top one darkest and the rest fading counterclockwise behind
+/// it, like AppKit's small spinner. Rows turn it an eighth of a turn per step.
+fn spinner_spokes() -> String {
+    (0..8)
+        .map(|spoke| {
+            // Clockwise from the top; age 0 is the leading spoke.
+            let age = (8 - spoke) % 8;
+            let angle = (spoke as f32) * FRAC_PI_4 - std::f32::consts::FRAC_PI_2;
+            let (x0, y0) = (8. + 4.25 * angle.cos(), 8. + 4.25 * angle.sin());
+            let (x1, y1) = (8. + 7. * angle.cos(), 8. + 7. * angle.sin());
+            let opacity = 1. - age as f32 * 0.1;
+            format!(
+                r#"<path d="M{x0:.2} {y0:.2}L{x1:.2} {y1:.2}" stroke-width="2" stroke-opacity="{opacity:.2}"/>"#
+            )
+        })
+        .collect()
 }
 
 /// One row of the list, as in the macOS app's table.
@@ -132,6 +154,8 @@ struct LockView {
     writes: u64,
     /// The jobserver size to turn back on with, while it's off.
     jobs_when_on: u32,
+    /// How many eighths of a turn running tasks' spinners have stepped.
+    spin: usize,
 }
 
 impl LockView {
@@ -171,6 +195,22 @@ impl LockView {
             }
         })
         .detach();
+        // Steps the spinners, redrawing only while something is running unpaused.
+        cx.spawn(async move |this, cx| {
+            loop {
+                cx.background_executor().timer(SPIN).await;
+                let alive = this.update(cx, |view, cx| {
+                    if view.state.running().any(|t| t.paused_at_ms.is_none()) {
+                        view.spin = view.spin.wrapping_add(1);
+                        cx.notify();
+                    }
+                });
+                if alive.is_err() {
+                    break;
+                }
+            }
+        })
+        .detach();
         let focus = cx.focus_handle();
         window.focus(&focus);
         LockView {
@@ -185,6 +225,7 @@ impl LockView {
             modal: None,
             writes: 0,
             jobs_when_on: lock::default_jobserver_tokens(),
+            spin: 0,
         }
     }
 
@@ -576,7 +617,7 @@ impl Render for LockView {
                             .map_or(0, |i| i + 1);
                         let selected =
                             self.selected == Some(id) || self.menu.is_some_and(|(m, _)| m == id);
-                        task_row(&t, task, phase, finished, position, selected, now, cx)
+                        task_row(&t, task, phase, finished, position, selected, now, self.spin, cx)
                     }
                 })
                 .collect();
@@ -758,6 +799,7 @@ fn task_row(
     position: usize,
     selected: bool,
     now: u64,
+    spin: usize,
     cx: &mut Context<LockView>,
 ) -> AnyElement {
     let p = t.p;
@@ -779,7 +821,9 @@ fn task_row(
                     ));
                 }
                 Some(expected) => {
-                    bar = Some((1., p.warn));
+                    // Past the usual time there's no telling how far along it is: a full,
+                    // faded bar, where the macOS app has an indeterminate one.
+                    bar = Some((1., Rgba { a: p.accent.a * 0.35, ..p.accent }));
                     parts.push(format!(
                         "{}, usually ~{}",
                         fmt_duration_ms(elapsed),
@@ -797,7 +841,7 @@ fn task_row(
             if task.paused_at_ms.is_some() {
                 ("paused", p.secondary)
             } else {
-                ("running", p.accent)
+                ("spinner", p.secondary)
             }
         }
         (Phase::Waiting, _) => {
@@ -946,7 +990,12 @@ fn task_row(
                 .w(px(20.))
                 .flex()
                 .justify_center()
-                .child(icon(status, 16., status_color)),
+                .child(if status == "spinner" {
+                    icon(status, 16., status_color)
+                        .with_transformation(Transformation::rotate(radians(spin as f32 * FRAC_PI_4)))
+                } else {
+                    icon(status, 16., status_color)
+                }),
         )
         .child(text)
         .child(div().pl(px(2.)).child(action))

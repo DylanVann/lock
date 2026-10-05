@@ -153,14 +153,24 @@ The agent name comes from `--agent`, then `$LOCK_AGENT`, then detection
 
 ## Install
 
+The `lock` command, with Rust installed (macOS and Linux):
+
 ```sh
+cargo install --locked --git https://github.com/DylanVann/lock lock
+```
+
+Run it again to update. That's all agents need; the apps are optional viewers.
+
+For the macOS app or `lock-gui`, clone the repo and build them for now:
+
+```sh
+git clone https://github.com/DylanVann/lock && cd lock
 ./install.sh   # `lock` and `lock-gui` into ~/.local/bin, and on macOS Lock.app into /Applications
 ```
 
 Rerun it to update; a running Lock app is quit and reopened. Set `BIN_DIR` or `APP_DIR` to
-install somewhere else.
-
-Building the GUI needs Xcode's Metal toolchain
+install somewhere else. Lock.app needs only the Xcode command line tools; building
+`lock-gui` also needs Xcode's Metal toolchain
 (`xcodebuild -downloadComponent MetalToolchain`).
 
 ## Native macOS app
@@ -182,22 +192,15 @@ bundle.
 
 ## Instructions for agents
 
-Add something like this to your agent instructions (`CLAUDE.md`, `AGENTS.md`):
+Agents only queue the commands they run through `lock`, so tell them to.
+[docs/agent-instructions.md](docs/agent-instructions.md) is a section to add to your
+agent instructions. It covers which commands to wrap and how, and allowing for queue
+time in their shell tool's timeout. To append it to your global instructions:
 
-```md
-## CPU-heavy commands
-
-This machine is shared by several agents. Prefix CPU-heavy commands with `lock`:
-
-- Builds, test suites, type checks of big projects: `lock -t <estimate> --name "<what>" <cmd>`
-- Benchmarks, profiling, anything timing-sensitive: `lock -x -t <estimate> --name "<what>" <cmd>`
-
-`-t` is your estimate of the longest the command should run (e.g. `-t 10m` for a build
-that usually takes 3). It's killed after that and `lock` exits with 124. You can leave
-`-t` off for quick commands (under 5 seconds).
-`lock` waits for its turn, then runs the command and passes through its exit code.
-Run `lock status` to see what's running and queued. Don't wrap quick commands.
+```sh
+curl -fsSL https://raw.githubusercontent.com/DylanVann/lock/main/docs/agent-instructions.md >> ~/.claude/CLAUDE.md   # Claude Code
+curl -fsSL https://raw.githubusercontent.com/DylanVann/lock/main/docs/agent-instructions.md >> ~/.codex/AGENTS.md   # Codex
 ```
 
-Instructions are advisory. [docs/agent-enforcement.md](docs/agent-enforcement.md)
+Or add it to a repo's `CLAUDE.md` / `AGENTS.md`. Instructions are advisory. [docs/agent-enforcement.md](docs/agent-enforcement.md)
 proposes enforcing them with pre-command hooks in Claude Code, Codex and Cursor.

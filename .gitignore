@@ -1,0 +1,8 @@
+# Rust build output
+/target
+
+# Lock.app build output (macos/build.sh)
+/macos/build/
+
+# macOS
+.DS_Store

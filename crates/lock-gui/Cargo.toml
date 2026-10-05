@@ -1,0 +1,14 @@
+[package]
+name = "lock-gui"
+description = "GPUI window showing the lock queue"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "lock-gui"
+path = "src/main.rs"
+
+[dependencies]
+lock = { path = "../lock" }
+gpui = "0.2.2"

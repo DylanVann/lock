@@ -151,6 +151,28 @@ is stopped), the next process to touch the queue kills it.
 The agent name comes from `--agent`, then `$LOCK_AGENT`, then detection
 (`CLAUDECODE` → `claude-code`, and similar for Codex, Cursor, Gemini, OpenCode).
 
+## Limitations
+
+`lock` makes the common case better: several agents sharing a dev machine, mostly
+running builds, tests and benchmarks. It doesn't guarantee a quiet machine.
+
+- **Only commands run through `lock` take part.** Everything else runs whenever it
+  likes: what you're doing yourself (a build you start by hand, a browser, an IDE
+  indexing), background services (Spotlight, backups, updates), and any command an
+  agent runs directly.
+- **It's guidance, not enforcement.** Agents use `lock` because their instructions say
+  to. They can forget, or not realize a command is heavy: a test suite that compiles
+  first, a script that kicks off a build, a code generator.
+  [docs/agent-enforcement.md](docs/agent-enforcement.md) proposes hooks to enforce it.
+- **Idle agents still use CPU.** While a `-x` task runs, the other agents' harnesses,
+  language servers, file watchers and terminals keep going. That's far less than a
+  build, but not nothing. Only light tasks (`-l`) are paused.
+- **The machine remembers.** A benchmark that starts right after a long build may run
+  on a hot CPU that's throttling, or with caches full of the build's data.
+
+For numbers you'll publish or compare across days, a dedicated quiet machine is still
+the way to go. `lock` is for keeping everyday parallel work from getting in its own way.
+
 ## Install
 
 The `lock` command, with Rust installed (macOS and Linux):
